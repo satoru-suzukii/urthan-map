@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Urthan: The Infinite Kingdoms</title>
+<style>
+    :root {
+        /* --- THEME: HIGH FANTASY --- */
+        --bg: #1a1815;
+        --panel: #26231f;
+        --border: #3d362d;
+        --text: #c2b280; /* Parchment Text */
+        --highlight: #e6b800; /* Gold */
+        --accent: #8c4b38; /* Wax Seal Red */
+        --danger: #8a2be2; /* Magic/Danger */
+
+        /* --- BIOME PALETTE --- */
+        --c-deep-water: #162640;   /* Deep Ocean */
+        --c-water: #284670;        /* Coastal Waters */
+        --c-coast: #d6cf9c;        /* Sand/Beaches */
+        
+        --c-plains: #4a6b36;       /* Grassy Plains */
+        --c-hills: #5e7d48;        /* Highlands */
+        --c-forest: #2d4522;       /* Deep Forest */
+        --c-jungle: #1e3618;       /* Tribal Jungle */
+        --c-swamp: #383625;        /* Bog */
+        
+        --c-desert: #cba874;       /* Desert */
+        --c-badlands: #8f6b4e;     /* Rocky Wastes */
+        
+        --c-mountain: #5c5957;     /* Stone Mountains */
+        --c-peak: #eef2f5;         /* Snowy Peaks */
+        --c-volcano: #3d1818;      /* Volcanic Rock */
+        
+        --c-snow: #dbe4eb;         /* Tundra */
+        --c-ice: #a1b8c9;          /* Ice Sheet */
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+
+    body {
+        margin: 0;
+        background-color: var(--bg);
+        color: var(--text);
+        font-family: 'Georgia', 'Times New Roman', serif;
+        height: 100dvh; 
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    /* --- LAYOUT CONTAINER --- */
+    .game-container {
+        width: 100%;
+        max-width: 600px;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        border-left: 2px solid var(--border);
+        border-right: 2px solid var(--border);
+        background: var(--panel);
+        position: relative;
+        box-shadow: 0 0 30px rgba(0,0,0,0.8);
+    }
+
+    /* --- HEADER --- */
+    .header {
+        padding: 15px;
+        border-bottom: 2px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        background: #12100e;
+        flex-shrink: 0;
+        z-index: 10;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+    }
+    .coords-label { font-size: 0.6rem; color: #8c8273; letter-spacing: 2px; font-weight: bold; margin-bottom: 4px; text-transform: uppercase; }
+    .coords-val { font-family: 'Courier New', monospace; color: var(--highlight); font-size: 1.2rem; font-weight: bold; text-shadow: 0 0 5px rgba(230, 184, 0, 0.3); }
+    
+    .status-box { text-align: right; }
+    .biome-name { color: #dcdcdc; font-weight: bold; font-size: 1rem; letter-spacing: 0.5px; font-variant: small-caps; }
+    .biome-sub { font-size: 0.75rem; color: #8c8273; font-style: italic; }
+
+    /* --- MAP VIEWPORT --- */
+    .map-viewport {
+        flex-grow: 1;
+        min-height: 0;
+        background: #000;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(11, 1fr); 
+        grid-template-rows: repeat(11, 1fr);
+        width: 100%;
+        max-width: 500px;
+        aspect-ratio: 1/1;
+        gap: 0; 
+        border: 4px solid #1a1815;
+    }
+
+    /* --- TILES --- */
+    .tile {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: clamp(14px, 4.5vw, 24px);
+        cursor: pointer;
+        position: relative;
+        transition: transform 0.1s, filter 0.1s;
+        user-select: none;
+        text-shadow: 0 2px 2px rgba(0,0,0,0.5);
+    }
+
+    .tile:hover {
+        filter: brightness(1.2);
+        z-index: 10;
+        transform: scale(1.15);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.7);
+        border: 1px solid var(--highlight);
+    }
+
+    .center-tile {
+        outline: 2px solid var(--highlight);
+        outline-offset: -2px;
+        z-index: 5;
+        box-shadow: inset 0 0 20px rgba(230, 184, 0, 0.3);
+    }
+
+    .tile.has-note::after {
+        content: '!'; position: absolute; top: 2px; right: 2px;
+        font-family: monospace; font-size: 10px; font-weight: bold;
+        color: #fff; background: var(--accent);
+        width: 12px; height: 12px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+    }
+
+    /* --- CONTROLS --- */
+    .controls {
+        padding: 15px;
+        padding-bottom: max(15px, env(safe-area-inset-bottom));
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+        background: var(--panel);
+        border-top: 2px solid var(--border);
+        flex-shrink: 0;
+        z-index: 20;
+    }
+
+    .d-pad { display: grid; grid-template-columns: 60px 60px 60px; gap: 8px; }
+
+    button {
+        background: #332e29; 
+        border: 1px solid var(--border); 
+        color: var(--text);
+        padding: 12px; 
+        border-radius: 4px; 
+        cursor: pointer; 
+        font-size: 18px;
+        font-family: inherit;
+        touch-action: manipulation; 
+        box-shadow: 0 3px 0 rgba(0,0,0,0.3);
+        transition: all 0.1s;
+    }
+    
+    button:active { 
+        background: var(--highlight); 
+        color: #1a1815; 
+        transform: translateY(3px);
+        box-shadow: none;
+    }
+
+    .settings-btn {
+        width: 100%; max-width: 200px; font-size: 0.9rem; font-weight: bold;
+        letter-spacing: 1px; text-transform: uppercase; display: flex;
+        align-items: center; justify-content: center; gap: 8px;
+        background: #1a1815; border: 1px solid #5c5448; color: #8c8273;
+    }
+    
+    .footer-info {
+        font-size: 11px; color: #5c5448; font-style: italic; text-align: center;
+    }
+
+    /* --- MODALS --- */
+    .modal {
+        position: absolute; bottom: 0; left: 0; right: 0; 
+        background: #1f1d1a; border-top: 3px solid var(--highlight); padding: 25px;
+        transform: translateY(110%); 
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        display: flex; flex-direction: column; z-index: 100; 
+        box-shadow: 0 -20px 60px rgba(0,0,0,0.9);
+        max-height: 85%;
+    }
+    .modal.active { transform: translateY(0); }
+
+    .modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-shrink: 0; border-bottom: 1px solid var(--border); padding-bottom: 10px;}
+    .note-title { font-weight: bold; color: var(--highlight); font-size: 1.3rem; font-variant: small-caps; }
+    .note-desc { font-style: italic; color: #8c8273; font-size: 0.9em; margin-top: 4px; }
+    
+    /* Inputs */
+    textarea {
+        width: 100%; flex-grow: 1; background: #141210; border: 1px solid var(--border);
+        color: var(--text); padding: 15px; resize: none; margin-bottom: 15px;
+        font-family: inherit; font-size: 1rem; outline: none; border-radius: 2px;
+    }
+    textarea:focus { border-color: var(--highlight); }
+
+    /* Modal Buttons */
+    .btn-action { font-size: 0.75rem; padding: 10px; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; flex: 1; min-width: 100px; border-radius: 2px; }
+    .btn-gold { background: var(--highlight); color: #1a1815; border: none; }
+    .btn-save { background: #2d4522; color: #fff; border: 1px solid #4a6b36; }
+    .btn-danger { background: #3d1818; color: #e6b8b8; border: 1px solid #5c1818; }
+    .btn-blue { background: #162640; color: #a1b8c9; border: 1px solid #284670; }
+    
+    .close-btn { background: transparent; border: 1px solid #5c5448; color: #5c5448; font-size: 0.7rem; padding: 5px 10px; border-radius: 2px; }
+
+    /* Settings & Logs */
+    #settings-modal { height: auto; padding-bottom: 30px; }
+    #logs-modal { height: 65%; }
+    
+    .settings-section { margin-bottom: 20px; border-bottom: 1px dashed var(--border); padding-bottom: 15px; }
+    .settings-label { font-size: 0.8rem; color: #8c8273; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; font-weight: bold;}
+    
+    .seed-row { display: flex; gap: 10px; margin-bottom: 10px; }
+    #custom-seed-input { flex: 1; background: #141210; border: 1px solid var(--border); color: var(--highlight); padding: 10px; font-family: monospace; }
+    .action-row { display: flex; gap: 10px; flex-wrap: wrap;}
+
+    .log-list { overflow-y: auto; flex-grow: 1; border: 1px solid var(--border); background: #141210; padding: 10px; }
+    .log-item { padding: 15px 0; border-bottom: 1px solid #26231f; }
+    .log-coords { font-family: monospace; color: var(--highlight); font-size: 0.8rem; display: block; margin-bottom: 5px; opacity: 0.8; }
+    .log-text { color: #c2b280; font-style: italic; white-space: pre-wrap; line-height: 1.4; }
+
+    .credits { margin-top: 20px; font-size: 10px; color: #444; text-align: center; }
+
+</style>
+</head>
+<body>
+
+<div class="game-container">
+    <div class="header">
+        <div>
+            <div class="coords-label">Cartography</div>
+            <div class="coords-val" id="coords-display">0, 0</div>
+        </div>
+        <div class="status-box">
+            <div class="biome-name" id="biome-display">Unknown Lands</div>
+            <div class="biome-sub" id="biome-sub-display">Scouting...</div>
+        </div>
+    </div>
+
+    <div class="map-viewport">
+        <div class="grid" id="grid"></div>
+    </div>
+
+    <div class="controls">
+        <div class="d-pad">
+            <div></div><button onclick="move(0, -1)">▲</button><div></div>
+            <button onclick="move(-1, 0)">◀</button>
+            <button onclick="zoom()" title="Survey Land" style="font-size: 20px;">📜</button> 
+            <button onclick="move(1, 0)">▶</button>
+            <div></div><button onclick="move(0, 1)">▼</button><div></div>
+        </div>
+        
+        <button class="settings-btn" onclick="toggleSettings()">
+            <span>⚙️ Realm System</span>
+        </button>
+
+        <div class="footer-info">
+            <span id="seed-display">World Seed: 000000</span>
+        </div>
+    </div>
+</div>
+
+<div id="notebook-modal" class="modal" style="height: 50%;">
+    <div class="modal-header">
+        <div>
+            <div class="note-title" id="note-title">Location</div>
+            <div class="note-desc" id="note-desc">Description...</div>
+        </div>
+        <button class="close-btn" onclick="closeNotebook()">X</button>
+    </div>
+    <textarea id="note-input" placeholder="Write in your journal about this place..."></textarea>
+    <button class="btn-action btn-gold" onclick="saveNote()">✒️ Scribe Journal</button>
+</div>
+
+<div id="logs-modal" class="modal">
+    <div class="modal-header">
+        <div class="note-title">Chronicles</div>
+        <button class="close-btn" onclick="closeLogs()">BACK</button>
+    </div>
+    <div class="log-list" id="log-list-container"></div>
+</div>
+
+<div id="settings-modal" class="modal">
+    <div class="modal-header">
+        <div class="note-title" style="color:#fff;">Realm Options</div>
+        <button class="close-btn" onclick="toggleSettings()">CLOSE</button>
+    </div>
+
+    <div class="settings-section">
+        <div class="settings-label">Progress</div>
+        <div class="action-row">
+            <button class="btn-action btn-save" id="manual-save-btn" onclick="manualSave()">💾 Save Game</button>
+            <button class="btn-action btn-gold" onclick="openLogs()">📜 Chronicles</button>
+        </div>
+    </div>
+
+    <div class="settings-section">
+        <div class="settings-label">World Genesis</div>
+        <div class="seed-row">
+            <input type="number" id="custom-seed-input" placeholder="Seed #">
+            <button class="btn-action btn-gold" style="flex: 0 0 80px;" onclick="applyCustomSeed()">LOAD</button>
+        </div>
+        <div style="font-size: 10px; color: #5c5448;">Changing the seed creates a new world history.</div>
+    </div>
+
+    <div class="settings-section" style="border:none; padding-bottom: 0;">
+        <div class="settings-label">Travel Arts</div>
+        <div class="action-row">
+            <button class="btn-action btn-blue" onclick="teleport()">✨ Astral Travel</button>
+            <button class="btn-action btn-danger" onclick="reincarnate()">🔥 New Age</button>
+        </div>
+    </div>
+
+    <div class="credits">Urthan Engine</div>
+</div>
+
+<script>
+    // --- 1. CORE ENGINE & SEEDING ---
+    let SEED = Math.floor(Math.random() * 899999) + 100000;
+    
+    const S = { x: 0, y: 0, ledger: {} };
+
+    // SAVE SYSTEM
+    function loadGame() {
+        try {
+            const raw = localStorage.getItem('urthan_save');
+            if (raw) {
+                const data = JSON.parse(raw);
+                SEED = data.seed || SEED;
+                S.x = data.x || 0;
+                S.y = data.y || 0;
+                S.ledger = data.ledger || {};
+            }
+        } catch (e) { console.error("Save Corrupt", e); }
+    }
+
+    function manualSave() {
+        const data = { seed: SEED, x: S.x, y: S.y, ledger: S.ledger };
+        localStorage.setItem('urthan_save', JSON.stringify(data));
+        
+        const btn = document.getElementById('manual-save-btn');
+        const origText = btn.innerHTML;
+        btn.innerHTML = "✅ SAVED";
+        setTimeout(() => btn.innerHTML = origText, 1500);
+    }
+
+    // --- NOISE FUNCTIONS ---
+    function hash(x, y) {
+        let n = Math.sin(x * 12.9898 + y * 78.233 + SEED) * 43758.5453;
+        return n - Math.floor(n);
+    }
+
+    function noise(x, y) {
+        let i = Math.floor(x);
+        let j = Math.floor(y);
+        let u = x - i;
+        let v = y - j;
+        u = u * u * u * (u * (u * 6 - 15) + 10);
+        v = v * v * v * (v * (v * 6 - 15) + 10);
+        return (1-u)*(1-v)*hash(i, j) + u*(1-v)*hash(i+1, j) + (1-u)*v*hash(i, j+1) + u*v*hash(i+1, j+1);
+    }
+
+    function fbm(x, y, octaves) {
+        let val = 0;
+        let amp = 0.5;
+        let freq = 1;
+        for(let i=0; i<octaves; i++){
+            val += noise(x*freq, y*freq) * amp;
+            amp *= 0.5;
+            freq *= 2;
+        }
+        return val;
+    }
+
+    // --- 2. WORLD LOGIC: URTHAN ---
+    
+    // Check for Settlements & POIs
+    function getSettlement(x, y, elev, moist, temp, biomeName) {
+        let h = hash(x, y); // Local randomness
+
+        // --- 1. THE CAPITAL SPACING LOGIC (UPDATED) ---
+        const sectorSize = 30; // One potential capital every 150km (30 tiles)
+        
+        // Determine which sector this tile belongs to
+        let sectorX = Math.floor(x / sectorSize);
+        let sectorY = Math.floor(y / sectorSize);
+        
+        // Generate a unique "Chosen Point" for this specific sector
+        let sectorHashX = hash(sectorX, sectorY);
+        let sectorHashY = hash(sectorY, sectorX);
+        
+        let targetX = (sectorX * sectorSize) + Math.floor(sectorHashX * sectorSize);
+        let targetY = (sectorY * sectorSize) + Math.floor(sectorHashY * sectorSize);
+
+        // Only attempt to spawn a capital if the current x,y is the Chosen Point
+        if (x === targetX && y === targetY) {
+            // If it lands in water (elevation < 0.32), spawn a Sunken Capital
+            if (elev < 0.32) {
+                return { type: 'Ruins', name: 'Sunken Capital', icon: '🔱', desc: 'A kingdom claimed by the sea.' };
+            }
+            // Otherwise, FORCE the Capital regardless of temperature or perfect elevation
+            return { type: 'Capital', name: 'High Capital', icon: '🏛️', desc: 'The seat of kings.' };
+        }
+
+        // --- 2. REGULAR SETTLEMENTS (Common) ---
+        
+        // Port Cities (Strictly Coastal)
+        if (h > 0.96 && elev >= 0.30 && elev <= 0.34) {
+            return { type: 'Port', name: 'Port City', icon: '⚓', desc: 'Ships dock here from across the seas.', isPort: true };
+        }
+
+        // Volcanos (High Elevation + Special Noise or random rare)
+        if (elev > 0.85 && h > 0.99) {
+            return { type: 'Volcano', name: 'Active Volcano', icon: '🌋', desc: 'The earth bleeds fire.', colorOverride: 'var(--c-volcano)' };
+        }
+
+        // Mines (Highlands/Mountains)
+        if (h > 0.97 && elev > 0.65) {
+            return { type: 'Mine', name: 'Deep Mine', icon: '⛏️', desc: 'Veins of iron and gold run deep here.' };
+        }
+
+        // Castles (Strategic Locations - Hills/Mountains)
+        if (h > 0.97 && elev > 0.5) {
+            return { type: 'Castle', name: 'Stone Keep', icon: '🏰', desc: 'A lord holds dominion over these lands.' };
+        }
+
+        // Ruins (Anywhere, higher chance in Deserts/Swamps)
+        let ruinChance = 0.99;
+        if (biomeName.includes('Desert') || biomeName.includes('Swamp')) ruinChance = 0.97;
+        if (h > ruinChance) {
+            return { type: 'Ruins', name: 'Ancient Ruins', icon: '🛕', desc: 'Remnants of thriving cities.' };
+        }
+
+        // Cities in Plains (Boosted from 0.95 to 0.94)
+        if (h > 0.94 && biomeName.includes('Plains')) {
+            return { type: 'City', name: 'City', icon: '🏙️', desc: 'A hub of commerce and trade.' };
+        }
+
+        // Tribal Villages (Jungle/Swamp/Deep Forest)
+        if (h > 0.90 && (biomeName.includes('Jungle') || biomeName.includes('Swamp') || biomeName.includes('Forest'))) {
+             return { type: 'Tribe', name: 'Tribal Village', icon: '🛖', desc: 'Locals who know the secrets of the wild.' };
+        }
+
+        // Nomads (Desert/Steppe/Tundra)
+        if (h > 0.90 && (biomeName.includes('Desert') || biomeName.includes('Steppe') || biomeName.includes('Tundra'))) {
+            return { type: 'Nomads', name: 'Nomad Camp', icon: '⛺', desc: 'Wanderers resting for the night.' };
+        }
+
+        // Standard Villages (Boosted: was 0.85, now 0.80)
+        if (h > 0.80 && elev > 0.32 && elev < 0.7) {
+            return { type: 'Village', name: 'Farming Village', icon: '🏠', desc: 'Peasants working the land.' };
+        }
+
+        return null;
+    }
+
+    function getTileData(x, y) {
+        // --- NOISE LAYERS ---
+        // Scale controls zoom. Lower = more zoomed out.
+        const scale = 0.05; 
+        
+        // 1. ELEVATION: Water (0.0-0.3), Land (0.3-0.8), Mountain (0.8-1.0)
+        let e = fbm(x * scale, y * scale, 4); 
+        
+        // 2. MOISTURE: Dry (0.0) to Wet (1.0)
+        let m = fbm(x * scale + 123.4, y * scale + 92.1, 2);
+        
+        // 3. TEMPERATURE: Cold (0.0) to Hot (1.0)
+        let t = fbm(x * 0.02 - 500, y * 0.02 - 500, 2); // Larger scale for temp zones
+
+        let data = { 
+            color: '#000', 
+            name: 'Unknown', 
+            icon: '', 
+            desc: '',
+            cssClass: ''
+        };
+
+        // --- OCEAN ---
+        if (e < 0.25) {
+            data.color = 'var(--c-deep-water)'; data.name = 'Abyssal Ocean'; data.desc = 'The crushing dark depths.';
+        } else if (e < 0.32) {
+            data.color = 'var(--c-water)'; data.name = 'Coastal Sea'; data.desc = 'Rough waters near the shore.';
+        } 
+
+        // --- LAND ---
+        else if (e < 0.80) {
+            // High Temp (Hot)
+            if (t > 0.65) {
+                if (m < 0.3) { data.color = 'var(--c-desert)'; data.name = 'Great Desert'; data.desc = 'Endless shifting sands.'; }
+                else if (m < 0.6) { data.color = 'var(--c-plains)'; data.name = 'Savanna'; data.desc = 'Golden grasses under a hot sun.'; }
+                else { data.color = 'var(--c-jungle)'; data.name = 'Rainforest'; data.icon='🌳'; data.desc = 'Impenetrable, humid jungle.'; }
+            }
+            // Mid Temp (Temperate)
+            else if (t > 0.35) {
+                if (m < 0.1) { data.color = 'var(--c-badlands)'; data.name = 'Badlands'; data.desc = 'Dry, cracked earth.'; }
+                else if (m < 0.55) { 
+                    data.color = 'var(--c-plains)'; data.name = 'Green Plains'; data.desc = 'Fertile lands suitable for farming.'; 
+                    // Add occasional trees to plains
+                    if(noise(x*0.5, y*0.5) > 0.7) { data.icon='🌳'; data.color='var(--c-forest)'; data.name='Forest';}
+                }
+                else if (m < 0.8) { data.color = 'var(--c-forest)'; data.name = 'Old Forest'; data.icon='🌳'; data.desc = 'Ancient trees block out the sun.'; }
+                else { data.color = 'var(--c-swamp)'; data.name = 'Festering Swamp'; data.desc = 'Mud, fog, and decay.'; }
+            }
+            // Low Temp (Cold)
+            else {
+                if (m < 0.3) { data.color = 'var(--c-snow)'; data.name = 'Frozen Tundra'; data.desc = 'Permafrost and biting winds.'; }
+                else { data.color = '#2d3b36'; data.name = 'Boreal Forest'; data.icon='🌲'; data.desc = 'Pine trees laden with snow.'; }
+            }
+
+            // Hills override (Higher elevation within land band)
+            if (e > 0.65) {
+                if (t < 0.3) { data.color = '#8899a6'; data.name = 'Snowy Hills'; }
+                else { data.color = 'var(--c-hills)'; data.name = 'Highlands'; data.desc = 'Rolling rocky hills.'; }
+            }
+        } 
+
+        // --- MOUNTAINS ---
+        else {
+            if (t > 0.7 && m < 0.3) { data.color = '#7a5a48'; data.name = 'Red Peaks'; data.icon='⛰️';} // Desert mountains
+            else if (e > 0.92) { data.color = 'var(--c-peak)'; data.name = 'Gods Peak'; data.icon='🏔️'; data.desc='The air is too thin to breathe.'; }
+            else { data.color = 'var(--c-mountain)'; data.name = 'Iron Mountains'; data.icon='⛰️'; data.desc='Impassable stone barriers.'; }
+        }
+
+        // --- SETTLEMENT CHECK ---
+        let settlement = getSettlement(x, y, e, m, t, data.name);
+        if (settlement) {
+            data.icon = settlement.icon;
+            data.name = settlement.name;
+            data.desc = settlement.desc;
+            if (settlement.isPort) data.color = 'var(--c-coast)';
+            if (settlement.colorOverride) data.color = settlement.colorOverride;
+        }
+
+        return data;
+    }
+
+    // --- 3. RENDER ENGINE ---
+    const gridEl = document.getElementById('grid');
+    const coordsEl = document.getElementById('coords-display');
+    const biomeEl = document.getElementById('biome-display');
+    const subBiomeEl = document.getElementById('biome-sub-display');
+    const seedEl = document.getElementById('seed-display');
+
+    function renderMap() {
+        gridEl.innerHTML = '';
+        const range = 5; 
+        
+        for (let y = S.y - range; y <= S.y + range; y++) {
+            for (let x = S.x - range; x <= S.x + range; x++) {
+                const data = getTileData(x, y);
+                const tile = document.createElement('div');
+                
+                tile.className = `tile ${data.cssClass}`;
+                if (x === S.x && y === S.y) tile.classList.add('center-tile');
+                if (S.ledger[`${x},${y}`]) tile.classList.add('has-note');
+
+                tile.style.backgroundColor = data.color;
+                tile.innerText = data.icon;
+                tile.onclick = () => openNotebook(x, y, data);
+                
+                gridEl.appendChild(tile);
+            }
+        }
+
+        const currentTile = getTileData(S.x, S.y);
+        coordsEl.innerText = `${S.x}, ${S.y}`;
+        biomeEl.innerText = currentTile.name;
+        subBiomeEl.innerText = currentTile.desc;
+        seedEl.innerText = `Year ${SEED} of the Third Era`;
+    }
+
+    // --- 4. CONTROLS ---
+    const noteModal = document.getElementById('notebook-modal');
+    const settingsModal = document.getElementById('settings-modal');
+    const logsModal = document.getElementById('logs-modal');
+
+    function isModalOpen() {
+        return noteModal.classList.contains('active') || 
+               settingsModal.classList.contains('active') ||
+               logsModal.classList.contains('active');
+    }
+
+    function move(dx, dy) {
+        if(isModalOpen()) return;
+        S.x += dx;
+        S.y += dy;
+        renderMap();
+    }
+
+    function zoom() {
+        if(isModalOpen()) return;
+        openNotebook(S.x, S.y, getTileData(S.x, S.y));
+    }
+
+    function toggleSettings() {
+        if (settingsModal.classList.contains('active')) {
+            settingsModal.classList.remove('active');
+        } else {
+            noteModal.classList.remove('active');
+            logsModal.classList.remove('active');
+            document.getElementById('custom-seed-input').value = SEED;
+            settingsModal.classList.add('active');
+        }
+    }
+
+    // --- LOGS ---
+    function openLogs() {
+        settingsModal.classList.remove('active');
+        const container = document.getElementById('log-list-container');
+        container.innerHTML = '';
+        
+        const entries = Object.entries(S.ledger);
+        if (entries.length === 0) {
+            container.innerHTML = '<div style="color:#5c5448;text-align:center;padding:20px;">The chronicles are empty.</div>';
+        } else {
+            entries.forEach(([key, val]) => {
+                const coords = key.split(',');
+                const div = document.createElement('div');
+                div.className = 'log-item';
+                div.innerHTML = `
+                    <span class="log-coords">LOCATION: ${coords[0]}, ${coords[1]}</span>
+                    <span class="log-text">${val.replace(/</g, "&lt;")}</span>
+                `;
+                container.appendChild(div);
+            });
+        }
+        logsModal.classList.add('active');
+    }
+
+    function closeLogs() {
+        logsModal.classList.remove('active');
+        settingsModal.classList.add('active');
+    }
+
+    // --- ACTIONS ---
+    function applyCustomSeed() {
+        const input = document.getElementById('custom-seed-input').value;
+        if(input) {
+            if(confirm("Rewrite history? Current map knowledge will be lost.")) {
+                SEED = parseInt(input);
+                S.x = 0; S.y = 0; S.ledger = {}; 
+                renderMap();
+                toggleSettings();
+            }
+        }
+    }
+
+    function teleport() {
+        // Jump far away
+        S.x += Math.floor((Math.random() - 0.5) * 5000);
+        S.y += Math.floor((Math.random() - 0.5) * 5000);
+        renderMap();
+        toggleSettings();
+    }
+
+    function reincarnate() {
+        if(confirm("Burn this world and start anew?")) {
+            SEED = Math.floor(Math.random() * 899999) + 100000;
+            S.x = 0; S.y = 0; S.ledger = {};
+            renderMap();
+            toggleSettings();
+        }
+    }
+
+    // --- NOTEBOOK ---
+    const nTitle = document.getElementById('note-title');
+    const nDesc = document.getElementById('note-desc');
+    const nInput = document.getElementById('note-input');
+    let currentEdit = {x:0, y:0};
+
+    function openNotebook(x, y, data) {
+        currentEdit = {x, y};
+        nTitle.innerText = `${data.icon || '📍'} ${data.name}`;
+        nDesc.innerText = data.desc;
+        nInput.value = S.ledger[`${x},${y}`] || "";
+        noteModal.classList.add('active');
+    }
+
+    function saveNote() {
+        const val = nInput.value.trim();
+        const key = `${currentEdit.x},${currentEdit.y}`;
+        if (val) S.ledger[key] = val;
+        else delete S.ledger[key];
+        closeNotebook();
+        renderMap();
+    }
+
+    function closeNotebook() {
+        noteModal.classList.remove('active');
+        nInput.blur();
+    }
+
+    // --- INIT ---
+    loadGame();
+    renderMap();
+
+    document.addEventListener('keydown', (e) => {
+        if (isModalOpen()) return;
+        const k = e.key.toLowerCase();
+        if (k === 'arrowup' || k === 'w') move(0, -1);
+        if (k === 'arrowdown' || k === 's') move(0, 1);
+        if (k === 'arrowleft' || k === 'a') move(-1, 0);
+        if (k === 'arrowright' || k === 'd') move(1, 0);
+        if (k === 'enter' || k === ' ') zoom();
+    });
+
+</script>
+</body>
+</html>
