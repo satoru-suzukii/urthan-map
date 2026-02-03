@@ -2,7 +2,7 @@
 
 **Made by Satoru Suzuki**
 
-A high-performance, single-file procedural world engine designed for high-fantasy exploration and grand strategy. This engine simulates an infinite realm where every tile represents a **1x1 km area**, governed by complex geological and climatic noise layers.
+A high-performance, single-file procedural world engine designed for high-fantasy exploration and grand strategy. This engine simulates an infinite realm where every tile represents a **5x5 km area**, governed by complex geological and climatic noise layers.
 
 Building on the same flexible architecture as *Frostward*, this tool provides a foundation for infinite fantasy maps, kingdoms, and chronicles without the need for external assets or heavy engines.
 
